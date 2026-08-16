@@ -1,0 +1,14 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Secrets — NEVER commit these
+.env
+
+# Frontend (used in Phase 2)
+node_modules/
+dist/
+
+# OS / editor junk
+.DS_Store
