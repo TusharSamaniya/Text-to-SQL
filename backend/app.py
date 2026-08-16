@@ -20,11 +20,11 @@ def health():
 def ask():
     question = request.json.get("question", "")
     try:
-        rows = pipeline.question_to_sql(question)
+        columns, rows = pipeline.ask_question(question)
         rows = [[str(v) for v in row] for row in rows]   # JSON-safe: all strings
-        return jsonify({"question": question, "rows": rows})
+        return jsonify({"question": question, "columns": columns, "rows": rows})
     except Exception as e:
-        return jsonify({"question": question, "rows": [], "error": str(e)}), 500
+        return jsonify({"question": question, "columns": [], "rows": [], "error": str(e)}), 500
 
 
 # 4) Start the server (only when this file is run directly)

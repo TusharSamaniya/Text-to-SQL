@@ -11,6 +11,22 @@ def run_query(sql):
             return cur.fetchall()
 
 
+def run_query_with_headers(sql, max_rows=100):
+    """Run SQL read-only (like run_query_safe) and return (headers, rows).
+    headers = the column names of the result (from cursor.description),
+    so the frontend can label its table."""
+    stripped = sql.strip().lower()
+    if not (stripped.startswith("select") or stripped.startswith("with")):
+        raise ValueError("Only SELECT queries are allowed.")
+    safe = f"SELECT * FROM ({sql.rstrip(';')}) AS _q LIMIT {max_rows}"
+
+    with psycopg2.connect(config.DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(safe)
+            headers = [d[0] for d in cur.description]
+            return headers, cur.fetchall()
+
+
 def get_schema():
     """Ask the database about itself; return a text description."""
     rows = run_query(
