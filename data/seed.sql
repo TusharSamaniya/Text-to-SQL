@@ -39,10 +39,12 @@ SELECT
     city_country[2 + 2 * place.i]                   AS country,
     CURRENT_DATE - (random() * 365)::int            AS signup_date
 FROM generate_series(1, 50) AS n,
-     -- LATERAL = "recompute this for EVERY row" -> one fresh roll
-     -- per customer, reused by BOTH city and country, so the
-     -- pairs always match (New York always comes with USA).
-     LATERAL (SELECT floor(random() * 10)::int AS i) AS place,
+     -- LATERAL: one roll per customer, reused by BOTH city and
+     -- country so pairs always match (New York comes with USA).
+     -- Trick: we ADD n so the subquery DEPENDS on the row ->
+     -- PostgreSQL can't evaluate it once and share it (it did,
+     -- and made everyone live in Mumbai!).
+     LATERAL (SELECT (floor(random() * 10)::int + n) % 10 AS i) AS place,
      lists;
 
 -- 4) ORDERS: 400 rows (random customer, random amount, random status)
