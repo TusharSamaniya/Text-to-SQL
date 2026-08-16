@@ -1,4 +1,7 @@
-# pipeline.py — the main flow: question -> SQL -> results (self-correcting)
+"""pipeline.py — the main flow: question → SQL → results (self-correcting).
+
+The single source of truth (_ask) generates SQL via Gemini, executes
+it read-only, and lets Gemini repair failing SQL up to 2 times."""
 import db
 import few_shots
 import llm
@@ -17,6 +20,19 @@ def clean_sql(raw):
 def ask_question(question):
     """Turn a question into (column_names, rows, sql) so the API can
     SHOW the generated SQL (explainability). Gemini can fix errors 2 times."""
+    return _ask(question)
+
+
+def question_to_sql(question):
+    """Backwards-compatible helper: return just the result rows.
+    (Used by the early test files; the API uses ask_question.)"""
+    _, rows, _ = _ask(question)
+    return rows
+
+
+def _ask(question):
+    """The single source of truth: question → (columns, rows, sql),
+    letting Gemini repair failing SQL up to 2 times."""
     prompt = prompts.build_sql_prompt(question, few_shots.format_few_shots())
     sql = clean_sql(llm.ask(prompt))
 
@@ -37,26 +53,3 @@ def ask_question(question):
                 "Corrected SQL:\n"
             ))
     return [], [], sql
-
-
-def question_to_sql(question):
-    """Turn a question into result rows, letting Gemini fix errors 2 times."""
-    prompt = prompts.build_sql_prompt(question, few_shots.format_few_shots())
-    sql = clean_sql(llm.ask(prompt))
-
-    for attempt in range(3):          # 1st try + up to 2 fixes
-        try:
-            return db.run_query_safe(sql)
-        except Exception as e:
-            if attempt == 2:          # out of retries -> fail honestly
-                raise
-            print("SQL failed -> asking Gemini to fix:", e)
-            sql = clean_sql(llm.ask(
-                "A PostgreSQL query failed. Fix it and answer ONLY with "
-                "the corrected SQL.\n\n"
-                f"Original question: {question}\n"
-                f"Failed SQL:\n{sql}\n"
-                f"Error message:\n{e}\n\n"
-                "Corrected SQL:\n"
-            ))
-    return []

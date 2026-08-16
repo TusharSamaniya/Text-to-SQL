@@ -1,7 +1,10 @@
-# clarifier.py — the ambiguity rule list + detector (Phase 3)
-# Each entry is a tuple: (vague word, hint about what is unclear).
-# When a question contains one of these words, the system knows
-# it may need to ask a clarifying question before writing SQL.
+"""clarifier.py — the clarification engine.
+
+Layers:
+    detect_ambiguity   → fast rule sieve ("best", "top", ...)
+    judge_ambiguity    → Gemini deep judge (catches novel phrasing)
+    analyze            → combined "should we ask?" verdict
+    build_clarification → multiple-choice options for the user"""
 import re
 
 import llm

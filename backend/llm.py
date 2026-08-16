@@ -1,5 +1,8 @@
-# llm.py — the ONLY file that talks to Gemini.
-# Everything else calls ask() and gets text back.
+"""llm.py — the ONLY file that talks to Gemini.
+
+Everything else calls ask() (free text) or ask_json() (structured
+JSON). Both retry on transient API errors (503 high demand / 429
+rate limit) before giving up honestly."""
 import json
 import time
 

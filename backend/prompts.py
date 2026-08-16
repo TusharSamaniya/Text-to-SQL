@@ -1,4 +1,8 @@
-# prompts.py — the instructions we send to Gemini
+"""prompts.py — the instruction templates sent to Gemini.
+
+build_sql_prompt     → role + schema + few-shots + question → SQL
+build_ambiguity_prompt   → is the question ambiguous? (JSON)
+build_clarification_prompt → multiple-choice options (JSON)"""
 import db
 
 

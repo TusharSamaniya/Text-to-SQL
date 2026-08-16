@@ -1,10 +1,19 @@
-# app.py — our web API server
+"""app.py — the web API server (Flask).
+
+Endpoints:
+    GET  /api/health  → liveness check
+    POST /api/ask     → question → clarification / answer (JSON)
+
+The route is a small state machine: an ambiguous question stores a
+pending clarification per session; a subsequent "choice" request
+resolves it into the SQL pipeline."""
 import uuid
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import clarifier
+import logger
 import pipeline
 import sessions
 
@@ -62,22 +71,40 @@ def ask():
                             "error": "Please type a question first."}), 400
 
     # --- 2) Ambiguity check (rules + Gemini) ---
-    verdict = clarifier.analyze(question)
-    if verdict["should_ask"]:
-        clarification = clarifier.build_clarification(question)
-        sessions.save(session_id, {"original_question": question,
-                                   "options": clarification["options"]})
-        return jsonify({"session_id": session_id, "needs_clarification": True,
-                        "clarification": clarification})
+    try:
+        verdict = clarifier.analyze(question)
+        if verdict["should_ask"]:
+            clarification = clarifier.build_clarification(question)
+            sessions.save(session_id, {"original_question": question,
+                                       "options": clarification["options"]})
+            logger.log_entry({"type": "clarify", "session_id": session_id,
+                              "question": question,
+                              "options": clarification["options"]})
+            return jsonify({"session_id": session_id,
+                            "needs_clarification": True,
+                            "clarification": clarification})
+    except Exception as e:
+        logger.log_entry({"type": "error", "session_id": session_id,
+                          "question": question, "error": str(e)})
+        return jsonify({"session_id": session_id, "needs_clarification": False,
+                        "question": question, "columns": [], "rows": [],
+                        "sql": "",
+                        "error": friendly_error(e),
+                        "detail": str(e)}), 500
 
     # --- 3) Clear question -> run the SQL pipeline ---
     try:
         columns, rows, sql = pipeline.ask_question(question)
         rows = [[str(v) for v in row] for row in rows]   # JSON-safe: all strings
+        logger.log_entry({"type": "answer", "session_id": session_id,
+                          "question": question, "sql": sql,
+                          "columns": columns, "rows": rows})
         return jsonify({"session_id": session_id, "needs_clarification": False,
                         "question": question, "columns": columns, "rows": rows,
                         "sql": sql})
     except Exception as e:
+        logger.log_entry({"type": "error", "session_id": session_id,
+                          "question": question, "error": str(e)})
         return jsonify({"session_id": session_id, "needs_clarification": False,
                         "question": question, "columns": [], "rows": [],
                         "sql": "",

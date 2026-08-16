@@ -1,4 +1,8 @@
-# db.py — the project's ONLY file that talks to PostgreSQL
+"""db.py — the project's ONLY file that talks to PostgreSQL.
+
+Holds every database interaction: plain queries, safe read-only
+queries with a row cap, schema introspection, and queries that
+also return the result column names (for the API)."""
 import psycopg2
 import config
 

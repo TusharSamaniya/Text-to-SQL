@@ -1,5 +1,7 @@
-# sessions.py — remember pending clarifications per session (in memory).
-# NOTE: lives in RAM -> lost on restart; fine for dev (Phase 5 upgrades this).
+"""sessions.py — remember pending clarifications per session (in memory).
+
+NOTE: lives in RAM → lost on restart and one copy per server process;
+fine for development (a shared store is a Phase 5 upgrade)."""
 pending = {}  # session_id -> {"original_question": ..., "options": [...]}
 
 
