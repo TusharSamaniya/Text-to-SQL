@@ -1,0 +1,242 @@
+=====================================================================
+TEXT-TO-SQL SYSTEM WITH A CLARIFICATION ENGINE
+Complete Project Plan
+=====================================================================
+
+1. PROJECT GOAL
+---------------
+Build an AI system where users type a question in plain English
+(e.g. "How many new customers signed up last month?") and the system
+automatically:
+  1) generates the matching SQL query
+  2) executes it against a PostgreSQL database
+  3) shows the results as a table
+
+The special feature: a CLARIFICATION ENGINE that detects vague or
+ambiguous questions (e.g. "Show me last month's best customers" -
+what does "best" mean? highest revenue? most orders?) and asks the
+user a clarifying question before generating the SQL.
+
+2. REQUIREMENTS ANALYSIS
+------------------------
+From the discussion with the project owner (the student):
+
+  a) Natural language question -> SQL query -> execute -> results
+  b) Ambiguity detection + clarification flow (the "production" part)
+  c) Local PostgreSQL database (pgAdmin) for development
+  d) Later: cloud database + deployed app usable by company members
+  e) Built step by step, one task at a time, with teaching
+  f) Simplest possible code, every line explained
+  g) LLM: Google Gemini (free tier)
+  h) Interface: Flask API (backend) + React (frontend)
+  i) Database: fresh sample company data (customers/orders/payments)
+
+3. TECH STACK
+-------------
+  - Python 3                 : backend + all AI logic
+  - Flask + Flask-CORS       : REST API layer
+  - psycopg2-binary          : talk to PostgreSQL from Python
+  - Google Gemini API (free) : the "AI brain" (model name in .env)
+  - python-dotenv            : read secret keys from .env file
+  - PostgreSQL               : local via pgAdmin (later: Neon/Supabase cloud)
+  - React + Vite             : web frontend (JavaScript)
+
+4. ARCHITECTURE (HOW THE SYSTEM WORKS)
+--------------------------------------
+User question
+    |
+    v
+[ Clarification Check ]   rules list + Gemini decide: is the question
+    |                     vague ("best", "top", "recent", ...)?
+    |                     If yes -> ask user (multiple choice dialog)
+    v
+[ SQL Generation ]        Gemini prompt = schema description + example
+    |                     question->SQL pairs + the user question
+    v
+[ Safe Execution ]        run read-only, limit rows, catch errors;
+    |                     on error, send the error back to Gemini to fix
+    v
+[ Results -> JSON ]       Flask returns rows to React
+    v
+[ React UI ]              table + summary shown to user
+
+Three layers, kept separate:
+  - AI + DB logic = pure Python modules (no Flask code inside)
+  - Flask = thin API wrapper
+  - React = thin UI
+This keeps the core testable and lets us swap the LLM provider later.
+
+5. DATABASE DESIGN (SAMPLE COMPANY DATA)
+----------------------------------------
+customers (id, name, email, city, country, signup_date)
+orders    (id, customer_id, order_date, status, total_amount)
+payments  (id, order_id, amount, payment_date, method)
+
+Seed data: ~50 customers, ~400 orders, ~400 payments spread over the
+last 12 months, so every sample question returns real answers.
+
+6. THE WAY TO BUILD THIS PROJECT (METHODOLOGY)
+----------------------------------------------
+We build it in 6 phases. Each phase has tasks; each task has subtasks.
+We do ONE task at a time, in order. Never skip ahead.
+
+The working agreement:
+  1. We pick the next uncompleted task
+  2. Teaching sequence for that task:
+       a) I explain the concepts (what and why, plain language)
+       b) I write the simplest possible code
+       c) I explain every line of that code
+       d) The student runs it; we fix any problem together
+       e) The student asks questions until it makes sense
+       f) We test it together and mark the task DONE
+  3. I STOP writing code after the task is done
+  4. The student says "next task" to move on (or asks questions)
+  5. The student may pause, rewind, or re-ask anything
+
+How we test at every step:
+  - Phase 0: run small Python scripts that print DB rows
+  - Phase 1: test endpoints with curl / browser
+  - Phase 2: test through the web page
+  - Phase 3+: test full conversations (question -> clarify -> answer)
+  - Phase 4: run the evaluation test set and get a score
+
+7. PHASES, TASKS AND SUBTASKS
+-----------------------------
+
+PHASE 0 - FOUNDATIONS (setup everything)
+  T0.1 Project skeleton
+       - create folder layout (backend/, frontend/, data/, docs/)
+       - create virtual environment (venv) and activate it
+       - create requirements.txt
+       - initialize git repository
+  T0.2 Sample database
+       - write schema.sql (3 tables)
+       - write seed.sql (sample rows)
+       - run both in pgAdmin
+       - verify with sample SELECT queries
+  T0.3 Python <-> PostgreSQL connection
+       - create .env file (database credentials) and .env.example
+       - create config.py (reads .env)
+       - create db.py (connect + run a query)
+       - test: python script prints rows from the DB
+  MILESTONE: Python can query the database
+
+PHASE 1 - CORE PIPELINE OVER THE API (English -> SQL -> results)
+  T1.1 Minimal Flask server
+       - create app.py with /api/health endpoint
+       - run the server, test in browser
+  T1.2 Gemini setup
+       - get free API key from aistudio.google.com
+       - create llm.py wrapper (one function to call Gemini)
+       - first test call: ask Gemini one simple question
+  T1.3 Schema introspection
+       - db.py function reads tables + columns automatically
+       - produce a schema description string
+  T1.4 SQL generation
+       - create prompts.py (the prompt template)
+       - create few_shots.py (example question->SQL pairs)
+       - generate SQL for a question; print it (do NOT execute yet)
+  T1.5 Safe execution + self-correction loop
+       - execute SQL read-only, limit result rows
+       - catch errors; send error text back to Gemini to fix (2 retries)
+  T1.6 Wire end-to-end
+       - POST /api/ask: question in -> JSON results out
+       - test with curl
+  MILESTONE: "How many new customers signed up last month?"
+             returns the correct answer through the API
+
+PHASE 2 - REACT FRONTEND
+  T2.1 Set up React project (Vite)
+       - create frontend with Vite
+       - learn JS/JSX basics: components, state, props
+       - run the dev server, see the starter page
+  T2.2 Chat UI
+       - input box + message list
+       - api.js helper to call the Flask API
+       - connect "Send" button to /api/ask
+  T2.3 Results display
+       - render the results as a table
+       - show errors and empty results nicely
+  MILESTONE: type a question in the browser -> see a results table
+
+PHASE 3 - THE CLARIFICATION ENGINE (the star feature)
+  T3.1 Ambiguity rules
+       - build the rule list ("best", "top", "recent", "large", ...)
+       - detect function: question -> is_ambiguous? why?
+  T3.2 Gemini ambiguity detection
+       - ask Gemini to judge ambiguity and return structured JSON
+       - combine with the rule list
+  T3.3 Clarifying question generator
+       - generate multiple-choice options for the user
+       - server keeps "pending clarification" per session
+  T3.4 Full clarify loop
+       - React shows the multiple-choice dialog
+       - user picks -> refined question -> SQL -> results
+  T3.5 Explainability + edge cases
+       - show the generated SQL in the UI (why we asked)
+       - handle "no data found" and errors gracefully
+  MILESTONE: "Show me last month's best customers" -> asks what
+             "best" means -> correct answer after user picks
+
+PHASE 4 - HARDENING AND EVALUATION
+  T4.1 Evaluation test set
+       - write ~20 test questions with expected results
+       - scoring script: run all, report how many pass
+  T4.2 Logging
+       - save every question -> SQL -> result (JSONL file or table)
+  T4.3 Edge cases and safety review
+       - SQL injection check, empty results, weird inputs
+  T4.4 Cleanup and documentation
+       - refactor modules, add docstrings
+       - write README.md (how to run the project)
+  MILESTONE: scored evaluation report + documented project
+
+PHASE 5 - DEPLOYMENT FOR COMPANY MEMBERS
+  T5.1 Cloud database
+       - create Neon/Supabase free PostgreSQL database
+       - migrate schema + seed data to the cloud
+  T5.2 Deploy Flask API
+       - deploy to Render / Railway / PythonAnywhere
+       - set environment variables on the server
+  T5.3 Deploy React frontend
+       - deploy to Vercel / Netlify
+       - configure CORS for production
+  T5.4 Team access
+       - create a read-only database user for the app
+       - share the URL with company members
+       - write a short usage guide
+  MILESTONE: company members can open the URL and ask questions
+
+8. PROJECT FOLDER STRUCTURE (after Phase 2)
+-------------------------------------------
+  Text to SQL/
+    backend/
+      app.py            Flask server + routes
+      pipeline.py       the main flow (clarify -> sql -> execute)
+      llm.py            Gemini wrapper
+      db.py             connection + introspection + safe execute
+      clarifier.py      ambiguity detection + clarification logic
+      prompts.py        prompt templates
+      few_shots.py      example question->SQL pairs
+      config.py         reads .env
+      requirements.txt
+      .env              secrets (never commit this)
+      .env.example      template for others
+    frontend/
+      index.html
+      src/main.jsx
+      src/App.jsx
+      src/api.js
+      package.json
+    data/
+      schema.sql
+      seed.sql
+    plan.txt           this plan
+
+9. ASSUMPTIONS
+--------------
+  - Python 3 and PostgreSQL (via pgAdmin) are already installed
+  - React/JavaScript is new to the student -> we start gently there
+  - Gemini model name lives in .env so we can use the current
+    free-tier model (confirmed at setup time)
+  - Deployment phase uses free tiers (Neon/Supabase, Render, Vercel)
