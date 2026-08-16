@@ -53,3 +53,16 @@ def analyze(question):
     ai = judge_ambiguity(question)               # slow path: deep judge
     reasons = [ai["reason"]] if ai["ambiguous"] and ai["reason"] else []
     return {"should_ask": ai["ambiguous"], "reasons": reasons}
+
+
+def build_clarification(question):
+    """Turn an ambiguous question into {"question": label, "options": [...]}.
+    Each option is a COMPLETE question, directly reusable as the next
+    question (the user's choice just replaces the original)."""
+    reply = llm.ask_json(prompts.build_clarification_prompt(question))
+    if not isinstance(reply, dict):
+        return {"question": "What did you mean?", "options": []}
+    return {
+        "question": reply.get("question", "What did you mean?"),
+        "options": reply.get("options", []),
+    }

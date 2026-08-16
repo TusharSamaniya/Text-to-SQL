@@ -32,3 +32,22 @@ Answer with EXACTLY this JSON:
 
 Question: {question}
 """
+
+
+def build_clarification_prompt(question):
+    """Turn an ambiguous question into multiple-choice options (JSON)."""
+    return f"""
+You are a helpful assistant for a company database.
+The user's question is AMBIGUOUS. Generate 3 concrete interpretations.
+Each interpretation must be a COMPLETE standalone question, phrased so
+our SQL generator can answer it directly against the schema.
+
+Schema:
+{db.get_schema()}
+
+Ambiguous question: {question}
+
+Answer with EXACTLY this JSON:
+{{"question": "a short label for what is unclear",
+  "options": ["complete question 1", "complete question 2", "complete question 3"]}}
+"""
