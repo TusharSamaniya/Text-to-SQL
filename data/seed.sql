@@ -35,10 +35,15 @@ SELECT
         || ' ' ||
         last_names[1 + floor(random() * 20)::int]   AS name,
     'customer' || n || '@example.com'               AS email,
-    city_country[1 + 2 * floor(random() * 10)::int] AS city,
-    city_country[2 + 2 * floor(random() * 10)::int] AS country,
+    city_country[1 + 2 * place.i]                   AS city,
+    city_country[2 + 2 * place.i]                   AS country,
     CURRENT_DATE - (random() * 365)::int            AS signup_date
-FROM generate_series(1, 50) AS n, lists;
+FROM generate_series(1, 50) AS n,
+     -- LATERAL = "recompute this for EVERY row" -> one fresh roll
+     -- per customer, reused by BOTH city and country, so the
+     -- pairs always match (New York always comes with USA).
+     LATERAL (SELECT floor(random() * 10)::int AS i) AS place,
+     lists;
 
 -- 4) ORDERS: 400 rows (random customer, random amount, random status)
 --    Status trick: the same status repeated in the array makes it
