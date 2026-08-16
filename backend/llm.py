@@ -1,8 +1,10 @@
 # llm.py — the ONLY file that talks to Gemini.
 # Everything else calls ask() and gets text back.
+import json
 import time
 
 from google import genai
+from google.genai import types
 import config
 
 # One-time setup: log in with our key
@@ -21,3 +23,21 @@ def ask(prompt, retries=3):
             if attempt == retries - 1:   # out of retries -> fail honestly
                 raise
             time.sleep(2)                # brief pause, then try again
+
+
+def ask_json(prompt, retries=3):
+    """Ask Gemini to return JSON; the Google API enforces valid JSON."""
+    for attempt in range(retries):
+        try:
+            response = client.models.generate_content(
+                model=config.MODEL_NAME,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            return json.loads(response.text)
+        except Exception:
+            if attempt == retries - 1:
+                raise
+            time.sleep(2)
