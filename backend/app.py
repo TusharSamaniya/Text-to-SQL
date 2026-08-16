@@ -15,6 +15,21 @@ app = Flask(__name__)
 CORS(app)
 
 
+def friendly_error(e):
+    """Turn any exception into a short, human-readable message."""
+    text = str(e).lower()
+    if "only select queries are allowed" in text:
+        return ("I can only answer read-only questions. Phrase it as a "
+                "question, e.g. 'How many customers are in Mumbai?'")
+    if any(k in text for k in ("503", "429", "quota", "rate limit")):
+        return "The AI service is busy right now. Please wait a moment and try again."
+    if any(k in text for k in ("refused", "could not connect", "operationalerror")):
+        return "Could not reach the database. Is PostgreSQL running?"
+    if "does not exist" in text:
+        return "That question led to an invalid query. Please rephrase it."
+    return "Something went wrong while answering. Please try rephrasing your question."
+
+
 # 3) Define the /api/health endpoint
 @app.route("/api/health")
 def health():
@@ -42,6 +57,9 @@ def ask():
     else:
         sessions.clear(session_id)       # a new question supersedes any pending one
         question = body.get("question", "")
+        if not question.strip():         # nothing to answer -> ask politely
+            return jsonify({"session_id": session_id, "needs_clarification": False,
+                            "error": "Please type a question first."}), 400
 
     # --- 2) Ambiguity check (rules + Gemini) ---
     verdict = clarifier.analyze(question)
@@ -54,14 +72,17 @@ def ask():
 
     # --- 3) Clear question -> run the SQL pipeline ---
     try:
-        columns, rows = pipeline.ask_question(question)
+        columns, rows, sql = pipeline.ask_question(question)
         rows = [[str(v) for v in row] for row in rows]   # JSON-safe: all strings
         return jsonify({"session_id": session_id, "needs_clarification": False,
-                        "question": question, "columns": columns, "rows": rows})
+                        "question": question, "columns": columns, "rows": rows,
+                        "sql": sql})
     except Exception as e:
         return jsonify({"session_id": session_id, "needs_clarification": False,
                         "question": question, "columns": [], "rows": [],
-                        "error": str(e)}), 500
+                        "sql": "",
+                        "error": friendly_error(e),     # human message
+                        "detail": str(e)}), 500         # full traceback for devs
 
 
 # 4) Start the server (only when this file is run directly)

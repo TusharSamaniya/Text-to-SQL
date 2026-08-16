@@ -15,14 +15,15 @@ def clean_sql(raw):
 
 
 def ask_question(question):
-    """Turn a question into (column_names, rows), letting Gemini fix
-    errors 2 times. Used by the API so the frontend can label columns."""
+    """Turn a question into (column_names, rows, sql) so the API can
+    SHOW the generated SQL (explainability). Gemini can fix errors 2 times."""
     prompt = prompts.build_sql_prompt(question, few_shots.format_few_shots())
     sql = clean_sql(llm.ask(prompt))
 
     for attempt in range(3):          # 1st try + up to 2 fixes
         try:
-            return db.run_query_with_headers(sql)
+            headers, rows = db.run_query_with_headers(sql)
+            return headers, rows, sql
         except Exception as e:
             if attempt == 2:          # out of retries -> fail honestly
                 raise
@@ -35,7 +36,7 @@ def ask_question(question):
                 f"Error message:\n{e}\n\n"
                 "Corrected SQL:\n"
             ))
-    return [], []
+    return [], [], sql
 
 
 def question_to_sql(question):
