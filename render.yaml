@@ -1,0 +1,18 @@
+# render.yaml — Render Blueprint for the Flask API
+# Deploy: push to GitHub -> in Render "New Blueprint" -> import this repo.
+services:
+  - type: web
+    name: text-to-sql-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: waitress-serve --port $PORT app:app
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false        # set in the Render dashboard (your Neon URL)
+      - key: GEMINI_API_KEY
+        sync: false        # set in the Render dashboard
+      - key: MODEL_NAME
+        value: gemini-flash-lite-latest

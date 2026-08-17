@@ -1,8 +1,10 @@
 import { useState } from "react";
 import "./App.css";
 
-// The URL of our Flask backend (Vite proxies /api -> 127.0.0.1:5000).
-const API_URL = "/api/ask";
+// The URL of our Flask backend.
+// Development: Vite proxies /api -> 127.0.0.1:5000 (see vite.config.js).
+// Production: set VITE_API_URL on the host (e.g. https://your-api.onrender.com/api/ask).
+const API_URL = import.meta.env.VITE_API_URL || "/api/ask";
 
 // A single message in the chat.
 function Message({ msg, onChoice }) {
